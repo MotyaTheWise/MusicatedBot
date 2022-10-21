@@ -1,19 +1,11 @@
-﻿using System;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using GiphyDotNet.Manager;
+using GiphyDotNet.Model.Parameters;
+using MusicatedBot;
 using Telegram.Bot;
 using Telegram.Bot.Extensions.Polling;
 using Telegram.Bot.Types;
-using Telegram.Bot.Exceptions;
-using MediaToolkit.Model;
-using MusicatedBot;
-using YoutubeExplode;
-using YoutubeExplode.Converter;
-using Microsoft.VisualBasic;
 using Telegram.Bot.Types.InputFiles;
-using FFMpegSharp;
-using FFMpegSharp.FFMPEG;
+using YoutubeExplode;
 
 namespace TelegramBotExperiments
 {
@@ -22,7 +14,8 @@ namespace TelegramBotExperiments
     {
 
 
-        static ITelegramBotClient bot = new TelegramBotClient("insert_API");
+        static ITelegramBotClient bot = new TelegramBotClient("tgAPI");
+        const long FileSize = 52428800;
         public static async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
         {
             string VideoURL = "";
@@ -35,7 +28,7 @@ namespace TelegramBotExperiments
 
                 if (message != null && message.Text != null && message.Text.ToLower() == "/start")
                 {
-                    await botClient.SendTextMessageAsync(message.Chat, "Привет! Я MusicatedBot. Пришли мне ссылку на видео с ютуба, а я скачаю его для тебя, либо пришлю звуковую дорожку. Узнать список команд /help");
+                    await botClient.SendTextMessageAsync(message.Chat, "Привет! Я MusicatedBot. \n Пришли мне ссылку на видео с ютуба, а я скачаю его для тебя, либо пришлю звуковую дорожку. \n\n Узнать список команд /help");
                     return;
                 }
 
@@ -43,32 +36,92 @@ namespace TelegramBotExperiments
             if (update.Type == Telegram.Bot.Types.Enums.UpdateType.Message)
             {
                 var message = update.Message;
-                if (message != null && message.Text != null && message.Text.Contains("/t") && ((message.Text.Contains("youtube") ^ message.Text.Contains("https://m.youtube.com/") ^ message.Text.Contains("youtu.be"))))
+                if (message != null && message.Text != null && message.Text.Contains("/t") && ((message.Text.Contains("youtube") ^ message.Text.Contains("m.youtube.com/") ^ message.Text.Contains("youtu.be")))) //send track
                 {
                     var chatId = message.Chat.Id;
                     VideoURL = Convert.ToString(message.Text);
                     Console.WriteLine("~~~Link received~~~");
-                    await DownloadMusic(VideoURL, message, botClient, update, cancellationToken);
-                    return;
+                    try
+                    {
+                        await DownloadMusic(VideoURL, message, botClient, update, cancellationToken);
+                        return;
+                    }
+                    catch (Exception)
+                    {
+                        await botClient.SendTextMessageAsync(message.Chat, "Что-то пошло не так, попробуй еще раз.");
+                        return;
+                    }
+
                 }
 
-                if (message != null && message.Text != null && message.Text.Contains("/v") && ((message.Text.Contains("youtube") ^ message.Text.Contains("https://m.youtube.com/") ^ message.Text.Contains("youtu.be"))))
+                if (message != null && message.Text != null && message.Text.Contains("/v") && ((message.Text.Contains("youtube") ^ message.Text.Contains("m.youtube.com/") ^ message.Text.Contains("youtu.be")))) //send video
                 {
                     var chatId = message.Chat.Id;
                     VideoURL = Convert.ToString(message.Text);
                     Console.WriteLine("~~~Link received~~~");
-                    await DownloadVideo(VideoURL, message, botClient, update, cancellationToken);
-                    return;
+                    try
+                    {
+                        await DownloadVideo(VideoURL, message, botClient, update, cancellationToken);
+                        return;
+                    }
+                    catch (Exception)
+                    {
+                        await botClient.SendTextMessageAsync(message.Chat, "Что-то пошло не так, попробуй еще раз.");
+                        return;
+                    }
+
                 }
 
-                if (message != null && message.Text != null && !message.Text.Contains("/t") && !message.Text.Contains("/v") && !message.Text.Contains("help"))
+                if (message != null && message.Text != null && !message.Text.Contains("/t") && !message.Text.Contains("/v") && !message.Text.Contains("help") && !message.Text.Contains("gif"))  //send gif
                 {
-                    await botClient.SendTextMessageAsync(message.Chat, "Ты прислал неправильную ссылку, либо не указал '/t' или '/v' перед ссылкой.");
+                    await botClient.SendTextMessageAsync(message.Chat, "Что-то не так. Доступные команды /help");
                     return;
                 }
 
-                if (message != null && message.Text != null && message.Text.Contains("/help")){
-                    await botClient.SendTextMessageAsync(message.Chat, "Список доступных команд: \n /t *link* – скачать звук из видео \n /v *link* – скачать видео с ютуба (длительностью не более 2 минут) \n /meme – получить рофлинку (пока не работает)");
+                if (message != null && message.Text != null && message.Text.Contains("/gif"))
+                {
+                    var chatId = message.Chat.Id;
+
+                    string memeSubject = Convert.ToString(message.Text);
+                    memeSubject = memeSubject.Remove(0, 3);
+                    Console.WriteLine("~~~Gif requested~~~");
+                    try
+                    {
+                        if (!String.IsNullOrEmpty(memeSubject))
+                        {
+
+                            var giphy = new Giphy("K3Cs8PANHoZ5YrO6ltlBmu1P6NKpU12w");
+                            var gifresult = await giphy.RandomGif(new RandomParameter()
+                            {
+                                Tag = memeSubject
+                            });
+                            string? gifUrl = gifresult?.Data?.Images?.Downsized?.Url;
+                            Console.WriteLine(gifresult);
+                            if (!String.IsNullOrEmpty(gifUrl))
+                            {
+                                Message message1 = await botClient.SendAnimationAsync(
+                                     chatId: chatId,
+                                     animation: gifresult?.Data?.Images?.Downsized?.Url);
+                                return;
+                            }
+                            else
+                            {
+                                await botClient.SendTextMessageAsync(message.Chat, "ОДОБРЯЕМ!");
+                                return;
+                            }
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        await botClient.SendTextMessageAsync(message.Chat, "Что-то не так. Доступные команды /help");
+                        return;
+                    }
+
+                }
+
+                if (message != null && message.Text != null && message.Text.Contains("/help"))
+                {
+                    await botClient.SendTextMessageAsync(message.Chat, "Список доступных команд: \n /t *link* – скачать звук из видео (пример: /t https://youtu.be/FzJ_XELywic) \n /v *link* – скачать видео с ютуба (пример: /v https://youtu.be/FzJ_XELywic)\n /gif – получить случайную гифку \n /gif *описание* – получить случайную гифку по указанному запросу (пример: /gif cat) \n\n P.S. если файл из видео получается больше 50MB, то он не будет отправлен.");
                     return;
                 }
 
@@ -89,31 +142,29 @@ namespace TelegramBotExperiments
             var chatId = message.Chat.Id;
 
             var youtube = new YoutubeClient();
-            var video = await youtube.Videos.GetAsync(VideoURL);         //getting title, author and duration
+            var video = await youtube.Videos.GetAsync(VideoURL);         //getting title
             var title = video.Title;
-            var author = video.Author;
-            var duration = video.Duration;
+
             await botClient.SendTextMessageAsync(message.Chat, $"Видео скачивается...");
             Console.WriteLine("Downloading video...");
 
             string saveVideoToFolder = "compressed";
 
-
-            await Save.SaveVideoAsync(saveVideoToFolder, VideoURL, "zalupa");
-            await using Stream stream = System.IO.File.OpenRead("compressed\\zalupa.webm");
-            System.IO.FileInfo file = new FileInfo("compressed\\zalupa.webm");
-            long size = file.Length;
-            Console.WriteLine(size);
-            if (size < 52428800)
+            await Saver.SaveVideoAsync(saveVideoToFolder, VideoURL, "video");
+            await using Stream stream = System.IO.File.OpenRead("compressed\\video.webm");
+            System.IO.FileInfo videoFile = new FileInfo("compressed\\video.webm");
+            long size = videoFile.Length;
+            Console.WriteLine($"Развер файла в байтах: {size}");
+            if (size < FileSize)
             {
                 Message message1 = await botClient.SendVideoAsync(
                 chatId: chatId,
                 video: new InputOnlineFile(content: stream, fileName: $"{title}.webm"));
-                
+
             }
             else
             {
-                await botClient.SendTextMessageAsync(message.Chat, $"Файл слишком большой, соси жопу.");
+                await botClient.SendTextMessageAsync(message.Chat, $"Файл слишком большой, отправка невозможна.");
             }
 
             return;
@@ -127,21 +178,27 @@ namespace TelegramBotExperiments
             var chatId = message.Chat.Id;
 
             var youtube = new YoutubeClient();
-            var video = await youtube.Videos.GetAsync(VideoURL);         //getting title, author and duration
+            var video = await youtube.Videos.GetAsync(VideoURL);         //getting title
             var title = video.Title;
-            var author = video.Author;
-            var duration = video.Duration;
 
             string saveToFolder = "compressed";    //file path on server
 
-            await Save.SaveTrackAsync(saveToFolder, VideoURL, "zalupa");
-            
-            await using Stream stream = System.IO.File.OpenRead("compressed\\zalupa.mp3");
-            Message message1 = await botClient.SendDocumentAsync(
+            await Saver.SaveTrackAsync(saveToFolder, VideoURL, "track");
+            await using Stream stream = System.IO.File.OpenRead("compressed\\track.mp3");
+            System.IO.FileInfo audioFile = new FileInfo("compressed\\track.mp3");
+            long size = audioFile.Length;
+            Console.WriteLine($"Развер файла в байтах: {size}");
+            if (size < FileSize)
+            {
+                Message message1 = await botClient.SendDocumentAsync(
                 chatId: chatId,
                 document: new InputOnlineFile(content: stream, fileName: $"{title}.mp3"));
+            }
+            else
+            {
+                await botClient.SendTextMessageAsync(message.Chat, $"Файл слишком большой, отправка невозможна.");
+            }
             return;
-
         }
 
 

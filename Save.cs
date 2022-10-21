@@ -11,10 +11,12 @@ using YoutubeExplode;
 using YoutubeExplode.Converter;
 using FFMpegSharp;
 using FFMpegSharp.FFMPEG;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace MusicatedBot
 {
-    class Save
+    class Saver
     {
         
 
@@ -27,13 +29,13 @@ namespace MusicatedBot
             var author = video.Author;
             var duration = video.Duration;
 
-            await youtube.Videos.DownloadAsync(VideoURL, "zalupa.mp3", o => o
+            await youtube.Videos.DownloadAsync(VideoURL, "track.mp3", o => o
                 .SetContainer("mp3") // override format
                 .SetPreset(ConversionPreset.UltraFast) // change preset
 
                 .SetFFmpegPath("ffmpeg.exe") // custom FFmpeg location
 );
-            string oldPath = $"zalupa.mp3";
+            string oldPath = $"track.mp3";
             string newPath = $"compressed\\{MP3Name}.mp3";
             File.Copy(oldPath, newPath, true);
             File.Delete(oldPath);
@@ -51,13 +53,13 @@ namespace MusicatedBot
             var author = video.Author;
             var duration = video.Duration;
 
-            await youtube.Videos.DownloadAsync(VideoURL, "zalupa.webm", o => o
+            await youtube.Videos.DownloadAsync(VideoURL, "video.webm", o => o
                 .SetContainer("webm") // override format
                 .SetPreset(ConversionPreset.VerySlow) // change preset
                 
                 .SetFFmpegPath("ffmpeg.exe") // custom FFmpeg location
 );
-            string oldPath = $"zalupa.webm";
+            string oldPath = $"video.webm";
             string newPath = $"compressed\\{VideoName}.webm";
             File.Copy(oldPath, newPath, true);
 
